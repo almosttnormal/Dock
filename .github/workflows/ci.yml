@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Lint, Test & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+          PUBLIC_BASE_URL: https://example.com
+          DISCORD_APPLICATION_ID: dummy-app-id
+          DISCORD_PUBLIC_KEY: dummy-public-key
+          DISCORD_BOT_TOKEN: dummy-bot-token
+          DISCORD_GUILD_ID: dummy-guild-id
+          ALLOWED_USER_IDS: dummy-user-1
+          GOOGLE_CLIENT_ID: dummy-google-client-id
+          GOOGLE_CLIENT_SECRET: dummy-google-client-secret
+          GOOGLE_REFRESH_TOKEN: dummy-google-refresh-token
+          DRIVE_WEBHOOK_TOKEN: dummy-webhook-token
+          NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+          CRON_SECRET: dummy-cron-secret
+          DEBOUNCE_SECONDS: 0
+
+      - name: Check for absolute paths and file:// links
+        run: |
+          echo "Scanning tracked repository files for absolute and file:// paths..."
+          if git grep -nIF -e '/Users/' -e 'C:\Users' -e 'D:\' -e 'file:///' -- . ':!.github/workflows/ci.yml'; then
+            echo "Error: Found prohibited absolute local paths or file:/// links in tracked files!"
+            exit 1
+          fi
+          echo "No prohibited absolute or file:/// paths found."
+
+  security-scan:
+    name: Gitleaks Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@e893e97f0de60965b2103f5db9bc2f6b3fb4cb65 # v2.3.8
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

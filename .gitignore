@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Vercel deployment metadata
+.vercel/
+
+# Environment files (ignore all .env* except .env.example)
+.env*
+!.env.example
+
+# Knowledge graph generated output
+graphify-out/
+
+# SSL / TLS Keys & Certs
+*.pem
+*.key
+*.cert
+*.crt
+
+# Local Google/Service tokens & credentials
+*credentials*.json
+*token*.json
+
+# Logs & OS / compiler artifacts
+*.log
+npm-debug.log*
+.DS_Store
+tsconfig.tsbuildinfo

@@ -1,0 +1,20 @@
+# Default global owners
+* @REPLACE-DEV-A @REPLACE-DEV-B
+
+# Discord domain
+/lib/discord/ @REPLACE-DEV-A
+/app/api/discord/ @REPLACE-DEV-A
+/scripts/register-commands.ts @REPLACE-DEV-A
+
+# Google Drive domain
+/lib/drive/ @REPLACE-DEV-B
+/app/api/drive/ @REPLACE-DEV-B
+/app/api/cron/ @REPLACE-DEV-B
+/scripts/bootstrap-drive.ts @REPLACE-DEV-B
+/scripts/smoke-drive.ts @REPLACE-DEV-B
+
+# Core Database & Security
+/lib/bridge/ @REPLACE-DEV-A @REPLACE-DEV-B
+/lib/supabase/ @REPLACE-DEV-A @REPLACE-DEV-B
+/supabase/ @REPLACE-DEV-A @REPLACE-DEV-B
+/lib/env.ts @REPLACE-DEV-A @REPLACE-DEV-B
