@@ -38,7 +38,7 @@ An internal, zero-worker Google Drive <-> Discord integration bridge designed fo
 
 ## Prerequisites
 
-- **Node.js**: `v20.x` (enforced via `.nvmrc` and `engines`).
+- **Node.js**: `v24.x` (enforced via `.nvmrc` and `engines`).
 - **Google Cloud Console**: Free account with Google Drive API enabled and OAuth 2.0 Web Client credentials.
 - **Discord Developer Portal**: Free account with Bot application and `applications.commands` scope.
 - **Supabase**: Free database instance.
@@ -54,7 +54,7 @@ Follow these steps to spin up your isolated local development stack:
 ```bash
 git clone git@github.com:shonjoo/Dock.git
 cd Dock
-nvm use 20
+nvm use 24
 npm install
 ```
 

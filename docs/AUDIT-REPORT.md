@@ -2,7 +2,7 @@
 
 **Repository**: [shonjoo/Dock](https://github.com/shonjoo/Dock.git)  
 **Version**: `1.0.0` (Commit `966e033`)  
-**Stack**: Next.js 15.1.7 (App Router), TypeScript 5.7 Strict, Supabase (PostgreSQL), Node 20.x, Vercel Serverless  
+**Stack**: Next.js 15.1.7 (App Router), TypeScript 5.7 Strict, Supabase (PostgreSQL), Node 24.x, Vercel Serverless  
 **Audit Date**: October 7, 2026  
 **Status**: **PRODUCTION-READY & PUBLICLY SECURE**
 
@@ -103,7 +103,7 @@ The database uses additive-only migrations applied sequentially:
 
 ## 5. Test Suite & Verification Results
 
-Verification completed on Node 20.x:
+Verification completed on Node 24.x:
 
 | Check | Tool / Command | Result | Details |
 | :--- | :--- | :---: | :--- |

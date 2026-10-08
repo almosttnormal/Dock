@@ -1,5 +1,5 @@
 # Project rules
-- Stack: Next.js App Router (15.1+ for `after`), TypeScript strict, Supabase, googleapis, discord-interactions, zod. Node 20.
+- Stack: Next.js App Router (15.1+ for `after`), TypeScript strict, Supabase, googleapis, discord-interactions, zod. Node 24.
 - No discord.js and no worker process. Discord is called via plain fetch (REST v10).
 - All secrets come from env via lib/env.ts (zod). Never hardcode or log secrets, tokens, or full request bodies.
 - Supabase: service role key server-side only. RLS enabled on every table, no public policies.
