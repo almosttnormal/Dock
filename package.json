@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.49.1",
+    "@supabase/supabase-js": "2.117.3",
     "discord-interactions": "4.1.1",
     "googleapis": "144.0.0",
     "next": "^15.5.27",
