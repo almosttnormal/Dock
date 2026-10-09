@@ -58,6 +58,14 @@ export async function processDriveChanges(
   // 1. Get current pageToken
   let pageToken = await getDriveSyncToken();
   if (!pageToken) {
+    // In polling-only mode, bootstrap-drive MUST have set a pageToken first.
+    // If no page token exists, fail explicitly rather than silently initializing.
+    if (env.POLLING_ONLY) {
+      throw new Error(
+        "Drive sync page token is missing in POLLING_ONLY mode. Run scripts/bootstrap-drive.ts first."
+      );
+    }
+
     const tokenRes = await withBackoff(() =>
       drive.changes.getStartPageToken({ supportsAllDrives: true })
     );

@@ -6,7 +6,7 @@ This guide outlines runtime management, external polling configurations, secrets
 
 ## 1. Setting Up cron-job.org Polling
 
-To ensure resilience against missed push notifications (network hiccups, transient 5xx errors, or cold starts), configure an external cron job via [cron-job.org](https://cron-job.org) to ping the Drive changes poller every 5 minutes.
+To ensure resilience against missed push notifications (or to operate completely without push webhooks in **Polling-Only Mode**), configure an external cron job via [cron-job.org](https://cron-job.org) to ping the Drive changes poller every 5 minutes.
 
 ### Step-by-Step Field Configuration
 
@@ -17,13 +17,28 @@ To ensure resilience against missed push notifications (network hiccups, transie
 | :--- | :--- | :--- |
 | **Title** | `Dock - 5m Poller` | A recognizable name for the job. |
 | **URL** | `https://<YOUR_PRODUCTION_DOMAIN>/api/drive/poll` | Production endpoint that queries Drive changes via start page token. |
-| **Execution Schedule** | `Every 5 minutes` (`*/5 * * * *`) | Frequency to query for changes missed by webhooks. |
+| **Execution Schedule** | `Every 5 minutes` (`*/5 * * * *`) | Frequency to query for changes. |
 | **Request Method** | `GET` | The endpoint supports both `GET` and `POST`. |
 | **Request Timeout** | `30 seconds` | Gives Next.js sufficient time to process changes and post embeds. |
 | **Headers** | Key: `Authorization`<br>Value: `Bearer <YOUR_PRODUCTION_CRON_SECRET>` | Strictly required. Requests without this matching secret return `401 Unauthorized`. |
 | **Failure Notifications** | Enable email or alert on consecutive failures | Set alerts for 2 or 3 consecutive failures to catch credential revocation early. |
 
 3. Click **Save** and trigger a test execution. Ensure the response status is `200 OK` with JSON `{ "success": true, ... }`.
+
+### Polling-Only Mode (`POLLING_ONLY=true`)
+When you deploy on a default provider domain (e.g., `*.vercel.app`) without Google Search Console domain verification, Google Drive rejects `changes.watch` webhook subscriptions. To run seamlessly in this setup, enable Polling-Only Mode:
+- **Set Environment Variable**: `POLLING_ONLY=true` in `.env.local` or hosting provider settings.
+- **Run Bootstrap**: `npx tsx scripts/bootstrap-drive.ts` (records the initial page token without calling `changes.watch`).
+- **What to Expect**: Upload announcements in Discord will appear up to **~5 minutes late** (aligned with the cron-job.org schedule interval), rather than near real-time.
+- **Daily Maintenance**: `/api/cron/renew-watches` detects `POLLING_ONLY=true`, skips watch registration/cancellation, runs `processDriveChanges()`, and cleans up expired subfolder cache rows.
+
+### How to Switch to Push Webhooks Later
+When you are ready for near-instant push notifications:
+1. **Purchase & Configure Custom Domain**: Buy a custom domain (e.g., `bridge.yourdomain.com`) and assign it to your project.
+2. **Verify in Google Search Console**: Complete domain ownership verification in [Google Search Console](https://search.google.com/search-console) under the Google account managing your OAuth credentials.
+3. **Register Domain in Google Cloud Console**: In GCP APIs & Services -> Domain Verification, add `https://bridge.yourdomain.com`.
+4. **Update Environment**: Set `PUBLIC_BASE_URL=https://bridge.yourdomain.com` and `POLLING_ONLY=false` in your environment.
+5. **Rerun Bootstrap**: Run `npx tsx scripts/bootstrap-drive.ts` to register the active Google Drive push channel subscription.
 
 ---
 

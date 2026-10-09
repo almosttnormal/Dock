@@ -3,9 +3,13 @@ import { processDriveChanges } from "./changes";
 import type { drive_v3 } from "googleapis";
 import type { DiscordRestClient } from "@/lib/discord/client";
 
+let mockPollingOnly = false;
 vi.mock("@/lib/env", () => ({
   getEnv: () => ({
     DEBOUNCE_SECONDS: 0,
+    get POLLING_ONLY() {
+      return mockPollingOnly;
+    },
   }),
 }));
 
@@ -267,5 +271,51 @@ describe("processDriveChanges", () => {
         ],
       })
     );
+  });
+
+  it("throws a clear error when pageToken is missing in POLLING_ONLY mode", async () => {
+    vi.mocked(getDriveSyncToken).mockResolvedValue(null);
+    mockPollingOnly = true;
+
+    const mockDrive = {
+      changes: {
+        getStartPageToken: vi.fn(),
+        list: vi.fn(),
+      },
+    } as unknown as drive_v3.Drive;
+    const mockDiscord = {
+      postMessage: vi.fn(),
+    } as unknown as DiscordRestClient;
+
+    try {
+      await expect(processDriveChanges(mockDrive, mockDiscord)).rejects.toThrow(
+        /Drive sync page token is missing in POLLING_ONLY mode/
+      );
+      expect(mockDrive.changes.getStartPageToken).not.toHaveBeenCalled();
+    } finally {
+      mockPollingOnly = false;
+    }
+  });
+
+  it("runs polling successfully without any active watch rows existing", async () => {
+    vi.mocked(getDriveSyncToken).mockResolvedValue("token-valid");
+    const mockDrive = {
+      changes: {
+        list: vi.fn().mockResolvedValue({
+          data: {
+            newStartPageToken: "token-advanced",
+            changes: [],
+          },
+        }),
+      },
+    } as unknown as drive_v3.Drive;
+    const mockDiscord = {
+      postMessage: vi.fn(),
+    } as unknown as DiscordRestClient;
+
+    const res = await processDriveChanges(mockDrive, mockDiscord);
+    expect(res.processedChanges).toBe(0);
+    expect(res.advancedPageToken).toBe("token-advanced");
+    expect(setDriveSyncToken).toHaveBeenCalledWith("token-advanced");
   });
 });

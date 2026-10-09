@@ -1,12 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock environment
+let mockPollingOnly = false;
 vi.mock("@/lib/env", () => ({
   getEnv: () => ({
     CRON_SECRET: "secure-cron-secret",
     DRIVE_WEBHOOK_TOKEN: "secure-drive-token",
     ALLOWED_USER_IDS: ["admin-user-1"],
     DISCORD_PUBLIC_KEY: "mock-public-key",
+    get POLLING_ONLY() {
+      return mockPollingOnly;
+    },
   }),
 }));
 
@@ -23,6 +27,10 @@ vi.mock("@/lib/drive/changes", () => ({
   processDriveChanges: vi.fn(),
 }));
 
+vi.mock("@/lib/bridge/folder-cache", () => ({
+  cleanExpiredFolders: vi.fn().mockResolvedValue(2),
+}));
+
 vi.mock("@/lib/drive/watch", () => ({
   createOrRenewDriveWatch: vi.fn(),
   stopDriveWatch: vi.fn(),
@@ -33,6 +41,7 @@ import { POST as webhookHandler } from "@/app/api/drive/webhook/route";
 import { POST as interactionsHandler } from "@/app/api/discord/interactions/route";
 import { GET as cronHandler } from "@/app/api/cron/renew-watches/route";
 import { verifyDiscordRequest } from "@/lib/discord/verify";
+import { cleanExpiredFolders } from "@/lib/bridge/folder-cache";
 import { getDriveWatch } from "@/lib/bridge/sync-state";
 import { processDriveChanges } from "@/lib/drive/changes";
 import { createOrRenewDriveWatch } from "@/lib/drive/watch";
@@ -111,6 +120,38 @@ describe("Endpoint Security & Gating", () => {
       const json = await res.json();
       expect(json.success).toBe(true);
       expect(json.watch.channelId).toBe("new-ch-id");
+    });
+
+    it("skips watch creation and calls processChanges and cleanExpiredFolders in POLLING_ONLY mode", async () => {
+      mockPollingOnly = true;
+      vi.mocked(processDriveChanges).mockResolvedValue({
+        processedChanges: 2,
+        announcedFiles: 1,
+        skippedLoopFiles: 0,
+        skippedUnmapped: 1,
+        advancedPageToken: "token-new",
+      });
+
+      const req = new Request("http://localhost/api/cron/renew-watches", {
+        method: "GET",
+        headers: {
+          authorization: "Bearer secure-cron-secret",
+        },
+      });
+
+      try {
+        const res = await cronHandler(req);
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.success).toBe(true);
+        expect(json.pollingOnly).toBe(true);
+        expect(json.evictedFolders).toBe(2);
+        expect(processDriveChanges).toHaveBeenCalled();
+        expect(cleanExpiredFolders).toHaveBeenCalled();
+        expect(createOrRenewDriveWatch).not.toHaveBeenCalled();
+      } finally {
+        mockPollingOnly = false;
+      }
     });
   });
 

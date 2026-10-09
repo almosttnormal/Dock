@@ -33,7 +33,7 @@ const envSchema = z.object({
   // Cron / Webhook protection
   CRON_SECRET: z.string().min(1, "CRON_SECRET is required"),
 
-  // Tuning
+  // Tuning & Modes
   DEBOUNCE_SECONDS: z
     .string()
     .optional()
@@ -42,6 +42,12 @@ const envSchema = z.object({
       const parsed = parseInt(val, 10);
       return Number.isNaN(parsed) ? 0 : parsed;
     }),
+
+  POLLING_ONLY: z
+    .string()
+    .optional()
+    .default("false")
+    .transform((val) => val === "true" || val === "1"),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -63,4 +69,8 @@ export function getEnv(): Env {
 
   parsedEnv = result.data;
   return parsedEnv;
+}
+
+export function resetEnv(): void {
+  parsedEnv = null;
 }
