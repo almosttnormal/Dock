@@ -1,5 +1,4 @@
 import http from "node:http";
-import url from "node:url";
 import { google } from "googleapis";
 
 /**
@@ -46,16 +45,109 @@ async function main() {
         return;
       }
 
-      const query = url.parse(req.url, true).query;
-      const code = query.code as string;
+      const reqUrl = new URL(req.url, `http://localhost:${port}`);
+      const code = reqUrl.searchParams.get("code");
+      const urlError = reqUrl.searchParams.get("error");
+      const urlErrorDesc = reqUrl.searchParams.get("error_description");
+
+      if (urlError) {
+        console.error("\n=======================================================");
+        console.error("GOOGLE OAUTH AUTHORIZATION ERROR (Consent Denied)");
+        console.error("=======================================================");
+        console.error(`Error Code:        ${urlError}`);
+        if (urlErrorDesc) {
+          console.error(`Description:       ${urlErrorDesc}`);
+        }
+        console.error(`Redirect URI used: ${redirectUri}`);
+        console.error("Hint:              Ensure you click 'Continue' / 'Allow' during the Google consent screen.");
+        console.error("=======================================================\n");
+
+        res.writeHead(400, { "Content-Type": "text/html" });
+        res.end("Authorization was cancelled or denied by the user. Check terminal for details.");
+        server.close(() => {
+          process.exit(1);
+        });
+        return;
+      }
 
       if (!code) {
-        res.writeHead(400);
+        res.writeHead(400, { "Content-Type": "text/html" });
         res.end("Missing authorization code.");
         return;
       }
 
-      const { tokens } = await oauth2Client.getToken(code);
+      const tokenParams = new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+      });
+
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: tokenParams.toString(),
+      });
+
+      const tokenData = await tokenRes.json().catch(() => null);
+
+      if (!tokenRes.ok) {
+        const status = tokenRes.status;
+        const errorCode = tokenData?.error || "token_exchange_error";
+        const errorDescription = tokenData?.error_description || tokenRes.statusText;
+
+        console.error("\n=======================================================");
+        console.error("GOOGLE OAUTH TOKEN EXCHANGE FAILED");
+        console.error("=======================================================");
+        console.error(`HTTP Status:       ${status}`);
+        console.error(`Error Code:        ${errorCode}`);
+        if (errorDescription) {
+          console.error(`Error Description: ${errorDescription}`);
+        }
+        console.error(`Redirect URI used: ${redirectUri}`);
+
+        const codeStr = String(errorCode || "");
+        const descStr = String(errorDescription || "");
+
+        if (codeStr.includes("invalid_client") || descStr.includes("invalid_client")) {
+          console.error("Hint:              Check GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET. The client secret might be mistyped or revoked.");
+        } else if (codeStr.includes("redirect_uri_mismatch") || descStr.includes("redirect_uri_mismatch")) {
+          console.error(`Hint:              Add "${redirectUri}" to Authorized redirect URIs in Google Cloud Console.`);
+        } else if (codeStr.includes("invalid_grant") || descStr.includes("invalid_grant")) {
+          console.error("Hint:              The authorization code has expired, already been redeemed, or the user revoked access. Run the script again to get a fresh code.");
+        } else {
+          console.error("Hint:              Verify your Google Cloud Console OAuth 2.0 Web Client settings and network connectivity.");
+        }
+        console.error("=======================================================\n");
+
+        res.writeHead(500, { "Content-Type": "text/html" });
+        res.end(`Error retrieving access token: ${errorCode}. Check your terminal output.`);
+        server.close(() => {
+          process.exit(1);
+        });
+        return;
+      }
+
+      const refreshToken = tokenData?.refresh_token;
+
+      if (!refreshToken) {
+        console.error("\n=======================================================");
+        console.error("GOOGLE OAUTH WARNING: NO REFRESH TOKEN RETURNED");
+        console.error("=======================================================");
+        console.error("Hint:              Google did not return a refresh_token. This usually happens if you already authorized the app without prompt=consent or access_type=offline.");
+        console.error("Hint:              Go to https://myaccount.google.com/connections, remove access for this app, and run the script again.");
+        console.error("=======================================================\n");
+
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end("Connected, but no refresh_token was returned. Check terminal for instructions.");
+        server.close(() => {
+          process.exit(1);
+        });
+        return;
+      }
 
       res.writeHead(200, { "Content-Type": "text/html" });
       res.end(`
@@ -70,16 +162,32 @@ async function main() {
       console.log("\n=======================================================");
       console.log("SUCCESS! Copy this refresh token into your .env file:");
       console.log("=======================================================");
-      console.log(`GOOGLE_REFRESH_TOKEN=${tokens.refresh_token}`);
+      console.log(`GOOGLE_REFRESH_TOKEN=${refreshToken}`);
       console.log("=======================================================\n");
 
       server.close(() => {
         process.exit(0);
       });
-    } catch (error) {
-      console.error("Error exchanging authorization code:", error);
-      res.writeHead(500);
-      res.end("Error retrieving access token.");
+    } catch (error: unknown) {
+      const err = error as { message?: string; code?: string };
+      const errorCode = err?.code || "network_error";
+      const errorDescription = err?.message || String(error);
+
+      console.error("\n=======================================================");
+      console.error("GOOGLE OAUTH TOKEN EXCHANGE FAILED");
+      console.error("=======================================================");
+      if (errorCode) {
+        console.error(`Error Code:        ${errorCode}`);
+      }
+      if (errorDescription) {
+        console.error(`Error Description: ${errorDescription}`);
+      }
+      console.error(`Redirect URI used: ${redirectUri}`);
+      console.error("Hint:              Network failure communicating with Google OAuth. Check your internet/proxy connection.");
+      console.error("=======================================================\n");
+
+      res.writeHead(500, { "Content-Type": "text/html" });
+      res.end(`Error retrieving access token: ${errorCode}. Check your terminal output.`);
       server.close(() => {
         process.exit(1);
       });
