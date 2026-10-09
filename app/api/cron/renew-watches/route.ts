@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getEnv } from "@/lib/env";
 import { createOrRenewDriveWatch, stopDriveWatch } from "@/lib/drive/watch";
 import { getLatestActiveWatch } from "@/lib/bridge/sync-state";
+import { processDriveChanges } from "@/lib/drive/changes";
+import { cleanExpiredFolders } from "@/lib/bridge/folder-cache";
 import { logger } from "@/lib/log";
 
 export async function GET(req: Request) {
@@ -22,6 +24,20 @@ async function handleRenewal(req: Request) {
   }
 
   try {
+    // If POLLING_ONLY mode is enabled, do NOT create or renew watch subscriptions.
+    // Instead, process pending changes and evict expired folder-cache rows.
+    if (env.POLLING_ONLY) {
+      const changesResult = await processDriveChanges();
+      const evictedCount = await cleanExpiredFolders();
+
+      return NextResponse.json({
+        success: true,
+        pollingOnly: true,
+        changes: changesResult,
+        evictedFolders: evictedCount,
+      });
+    }
+
     const existingWatch = await getLatestActiveWatch();
 
     // 1. Create or renew the watch subscription
